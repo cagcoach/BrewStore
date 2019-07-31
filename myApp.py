@@ -1,4 +1,5 @@
 import json
+import os
 from _queue import Empty
 from collections import defaultdict
 from json import JSONDecodeError
@@ -114,6 +115,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.defaultAppIcon = QIcon("icons/open_icon_library-mac/icons/32x32/mimetypes/package-x-generic-2.icns")
         self.FilterEdit.textChanged.connect(self.filterChange)
         self.InstallButton.clicked.connect(self.install)
+
         #print(self.toolBar.actionApplications)
         #self.consoleUi_MainWindow.ui.console
 
@@ -151,11 +153,13 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.toolboxMutex.unlock()
 
     def install(self):
+
         if len(self.AppList.selectedItems())==0:
             self.DescriptionArea.setHtml("")
         else:
             item = self.AppList.selectedItems()[0]
             app = item.data(0x0100) #UserRole
+            self.console_writer("Execute: {} <b>Please Wait</b><br/>".format(app["installcommand"]))
             self.runcommand(app["installcommand"])
     def selectApp(self):
         if len(self.AppList.selectedItems())==0:
@@ -174,6 +178,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.changeCat("Updates")
 
     def filterData(self,filter,data):
+        if filter == "": return True
         if isinstance(data,list):
             for i in data:
                 if self.filterData(filter,i):
@@ -194,7 +199,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.AppList.clear()
             self.visiblePrograms = dict()
             for k,v in self.appDict[new].items():
-                datalist = [v.get("name",""),v.get("full_name",""),v.get("desc",""),v.get("oldname","")]
+                datalist = [v.get("name",""),v.get("full_name",""),v.get("desc",""),v.get("oldname",""),v.get("token","")]
                 if not self.filterData(filter,datalist):
                     continue
 
@@ -223,8 +228,10 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         if message[0] == "brew cask outdated --greedy":
             if message[1][-1] == "\n": message[1] = message[1][:-1]
             apps = message[1].split("\n")
+            self.appDict["Updates"]=dict()
             for a in apps:
-                self.appDict["Updates"][a] = self.appDict["Updates"].get(a, {"token": a, "name": a,"installcommand": "brew cask upgrade {}".format(a)})
+                self.appDict["Updates"][a] = self.appDict["Casks"].get(a,{"token": a, "name": a})
+                self.appDict["Updates"][a]["installcommand"]="brew cask upgrade {}".format(a)
             if self.actionUpdates.isChecked():
                 self.changeCat("Updates",True)
 
@@ -260,6 +267,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 raw = json.loads(message[1])
             except JSONDecodeError:
                 print(message[1])
+                return
             for p in raw:
                 p["token"]=p["name"]
                 p["name"]=p["full_name"]
@@ -274,6 +282,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 raw = json.loads(message[1])
             except JSONDecodeError:
                 print(message[1])
+                return
             self.appDict["Casks"] = dict()
             for p in raw:
                 if isinstance(p["name"],list):
@@ -283,6 +292,16 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.appDict["Casks"][p["token"]]=p
             if self.actionCasks.isChecked():
                 self.changeCat("Casks",True)
+            for k,_ in self.appDict["Updates"].items():
+                if k in self.appDict["Casks"]:
+                    v = self.appDict["Casks"].get(k)
+                    v["installcommand"] = self.appDict["Updates"][k]["installcommand"]
+                    self.appDict["Updates"][k]=v
+            if self.actionUpdates.isChecked():
+                self.changeCat("Updates",True)
+        elif message[0].startswith("brew cask upgrade "):
+            self.runcommand("brew cask outdated --greedy")
+
     def console_writer(self,text):
         self.console.insertHtml(text)
         self.console.verticalScrollBar().setValue(self.console.verticalScrollBar().maximum())
@@ -290,6 +309,12 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
     def runcommand(self,command,printit=True):
         self.taskQ.put((command,printit))
     def on_startup(self):
+        if os.system("command -v brew")!=0:
+            ret = QMessageBox.warning(self,"Homebrew not found", "Homebrew is not installed on your device. Do you want to install it now?")
+            if ret==QMessageBox.Yes:
+                self.runcommand("/usr/bin/ruby -e \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)\"", True)
+            else:
+                exit()
         self.runcommand("brew search --cask", False)
         #self.runcommand("brew search", False)
         self.runcommand("brew info --json=v1 --all", False)
