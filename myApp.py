@@ -226,7 +226,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
     def readNotif(self,message):
         print("MESSAGE from {}".format(message[0]))
         if message[0] == "brew cask outdated --greedy":
-            if message[1][-1] == "\n": message[1] = message[1][:-1]
+            if len(message[1])>0 and message[1][-1] == "\n": message[1] = message[1][:-1]
             apps = message[1].split("\n")
             self.appDict["Updates"]=dict()
             for a in apps:
@@ -244,7 +244,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
             #print("####")
             #print(message[2])
         elif message[0] == "brew search --cask":
-            if message[1][-1]=="\n": message[1]=message[1][:-1]
+            if len(message[1])>0 and message[1][-1]=="\n": message[1]=message[1][:-1]
             apps = message[1].split("\n")
             #for a in apps:
             #    self.appDict["Casks"][a] = self.appDict["Casks"].get(a, {"token": a, "name": a})
@@ -253,7 +253,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.changeCat("Casks",True)
 
         elif message[0] == "brew search":
-            if message[1][-1] == "\n": message[1] = message[1][:-1]
+            if len(message[1])>0 and message[1][-1] == "\n": message[1] = message[1][:-1]
             apps = message[1].split("\n")
             for a in apps:
                 self.appDict["Libs"][a] = self.appDict["Libs"].get(a, {"token": a, "name": a, "installcommand": "brew install {}".format(a)})
