@@ -97,9 +97,11 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
+
         self.setupUi(self)
         #self.resize(600, 400)  # The resize() method resizes the widget.
         self.setWindowTitle("BrewStore")  # Here we set the title for our window.
+        self.setWindowIcon(QIcon('icons/brewstore_v1_1280.icns'))
         self.taskQ = Queue();
         self.tasker = RunTasks(self.taskQ)
         self.tasker.stderr.connect(self.console_writer)
