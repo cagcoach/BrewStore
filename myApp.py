@@ -24,6 +24,7 @@ class RunTasks(QThread):
     def __init__(self,commandQ):
         super(RunTasks,self).__init__()
         self.commandQ = commandQ
+        self.env={**os.environ, 'SUDO_ASKPASS': './visualsudo.sh'}
     def run(self):
         while True:
             print("RUN")
@@ -32,7 +33,7 @@ class RunTasks(QThread):
             printstd = cQ[1]
             print (printstd)
             cmd=command.split(' ')
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.env)
             process.stdout
             stdout_queue = Queue()
             stderr_queue = Queue()
