@@ -6,7 +6,7 @@ from json import JSONDecodeError
 
 from PyQt5 import  QtWidgets, QtGui, uic
 from PyQt5.QtCore import QThread, pyqtSignal, QMutex
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QMessageBox, QListWidgetItem
 
 from AsynchronousFileReader import AsynchronousFileReader
@@ -239,7 +239,13 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.changeCat("Updates",True)
 
             programs_to_update=message[1].split('\n')
-            reply = QMessageBox.question(self,"Update Software", "Do you want to update {} programs?<br>{}".format(len(programs_to_update),", ".join(programs_to_update)))
+            #reply = QMessageBox.question(self,"Update Software", "Do you want to update {} programs?<br>{}".format(len(programs_to_update),", ".join(programs_to_update)),icon=QIcon("icons/brewstore_v1_1280.icns") )
+            mgBox = QMessageBox()
+            mgBox.setIconPixmap(QPixmap("icons/brewstore_v1_1280.icns"))
+            mgBox.setWindowTitle("Update Software")
+            mgBox.setText("Do you want to update {} programs?<br>{}".format(len(programs_to_update),", ".join(programs_to_update)))
+            mgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            reply = mgBox.exec()
             if reply==QMessageBox.Yes:
                 self.runcommand("brew cask upgrade --greedy")
                 self.runcommand("brew cask outdated --greedy")
