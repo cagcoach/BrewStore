@@ -1,5 +1,4 @@
-# BrewStore
-## Pre-Alpha-Version
+# BrewStore Pre-Alpha
 
 BrewStore is Application-Store built ontop of Homebrew. It shall make Homebrew Casks and Libraries easier Accessable for the average person.
 
