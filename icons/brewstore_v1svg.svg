@@ -17,9 +17,9 @@
    id="svg8"
    inkscape:version="0.92.2 5c3e80d, 2017-08-06"
    sodipodi:docname="brewstore_v1svg.svg"
-   inkscape:export-filename="/Users/christian/BrewStore/icons/brewstore_v1_128.png"
-   inkscape:export-xdpi="96"
-   inkscape:export-ydpi="96">
+   inkscape:export-filename="/Users/christian/BrewStore/icons/brewstore_v1_1280.png"
+   inkscape:export-xdpi="960"
+   inkscape:export-ydpi="960">
   <defs
      id="defs2">
     <linearGradient
@@ -1353,7 +1353,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.49497475"
-     inkscape:cx="-72.199124"
+     inkscape:cx="-571.21448"
      inkscape:cy="384.51537"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -1368,8 +1368,8 @@
      inkscape:snap-bbox-midpoints="true"
      inkscape:window-width="1920"
      inkscape:window-height="1101"
-     inkscape:window-x="-2"
-     inkscape:window-y="0"
+     inkscape:window-x="70"
+     inkscape:window-y="13"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata5">
@@ -1379,7 +1379,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>

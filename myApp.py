@@ -1,11 +1,12 @@
 import json
 import os
+import random
 from _queue import Empty
 from collections import defaultdict
 from json import JSONDecodeError
 
 from PyQt5 import  QtWidgets, QtGui, uic
-from PyQt5.QtCore import QThread, pyqtSignal, QMutex
+from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QTimer
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QMessageBox, QListWidgetItem
 
@@ -30,6 +31,7 @@ class RunTasks(QThread):
             print("RUN")
             cQ = self.commandQ.get()
             command = cQ[0]
+            self.stdout.emit("{}<br />".format(command))
             printstd = cQ[1]
             print (printstd)
             cmd=command.split(' ')
@@ -108,6 +110,8 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tasker.stdout.connect(self.console_writer)
         self.tasker.notify.connect(self.readNotif)
         self.tasker.start()
+        self.fakeprogresstimer = QTimer()
+        self.fakeprogresstimer.timeout.connect(self.fakeProgress)
         self.on_startup()
         self.apps = defaultdict(list)
         self.appDict = defaultdict(dict)
@@ -123,7 +127,10 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         #self.consoleUi_MainWindow.ui.console
 
 
-
+    def fakeProgress(self):
+        self.progressBar.setMaximum(self.progressBar.maximum() + 5)
+        self.progressBar.setValue(self.progressBar.value() + 5)
+        self.fakeprogresstimer.setInterval(random.randint(1000,5000))
     def initToolbar(self):
         self.toolboxMutex = QMutex()
         self.toolBarActions = {}
@@ -145,6 +152,12 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionUpdates.setCheckable(True)
         self.actionUpdates.triggered.connect(lambda a: self.newSelect(a, self.actionUpdates, "Updates"))
         self.toolBarActions["Updates"] = self.actionUpdates
+
+        self.actionQueue = self.toolBar.addAction(
+            QIcon("icons/open_icon_library-mac/icons/32x32/actions/arrow-right-double-3.icns"), "Queue")
+        self.actionQueue.setCheckable(True)
+        self.actionQueue.triggered.connect(lambda a: self.newSelect(a, self.actionQueue, "Queue"))
+        self.toolBarActions["Queue"] = self.actionQueue
 
     def newSelect(self,value,action,name):
         self.toolboxMutex.lock()
@@ -199,42 +212,51 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.appListMutex.lock()
         filter = self.FilterEdit.text()
         if self.viewstate != (new,filter) or force:
-            self.AppList.clear()
-            self.visiblePrograms = dict()
-            for k,v in self.appDict[new].items():
-                datalist = [v.get("name",""),v.get("full_name",""),v.get("desc",""),v.get("oldname",""),v.get("token","")]
-                if not self.filterData(filter,datalist):
-                    continue
+            if(new=="Queue"):
+                self.AppList.clear()
+                for command, printit in list(self.taskQ.queue):
+                    widget = QListWidgetItem()
+                    widget.setText(command)
 
-                widget = QListWidgetItem()
-                if "name" not in v:
-                    widget.setText(v)
-                else:
-                    if isinstance(v["name"],list):
-                        widget.setText(v["name"][0])
+            else:
+                self.AppList.clear()
+                self.visiblePrograms = dict()
+                for k,v in self.appDict[new].items():
+                    datalist = [v.get("name",""),v.get("full_name",""),v.get("desc",""),v.get("oldname",""),v.get("token","")]
+                    if not self.filterData(filter,datalist):
+                        continue
+
+                    widget = QListWidgetItem()
+                    if "name" not in v:
+                        widget.setText(v)
                     else:
-                        widget.setText(v["name"])
+                        if isinstance(v["name"],list):
+                            widget.setText(v["name"][0])
+                        else:
+                            widget.setText(v["name"])
 
-                if "icon" not in v:
-                    widget.setIcon(self.defaultAppIcon)
-                else:
-                    widget.setIcon(QIcon(v["icon"]))
-                widget.setData(0x0100,v)#UserRole
-                self.AppList.addItem(widget)
-            self.viewstate = (new,filter)
+                    if "icon" not in v:
+                        widget.setIcon(self.defaultAppIcon)
+                    else:
+                        widget.setIcon(QIcon(v["icon"]))
+                    widget.setData(0x0100,v)#UserRole
+                    self.AppList.addItem(widget)
+                self.viewstate = (new,filter)
+
         self.appListMutex.unlock()
 
 
 
     def readNotif(self,message):
-        print("MESSAGE from {}".format(message[0]))
-        if message[0] == "brew cask outdated --greedy":
+        self.progressBar.setValue(self.progressBar.value() + 50)
+        self.update()
+        if message[0] == "brew outdated --greedy":
             if len(message[1])>0 and message[1][-1] == "\n": message[1] = message[1][:-1]
             apps = message[1].split("\n")
             self.appDict["Updates"]=dict()
             for a in apps:
                 self.appDict["Updates"][a] = self.appDict["Casks"].get(a,{"token": a, "name": a})
-                self.appDict["Updates"][a]["installcommand"]="brew cask upgrade {}".format(a)
+                self.appDict["Updates"][a]["installcommand"]="brew upgrade {}".format(a)
             if self.actionUpdates.isChecked():
                 self.changeCat("Updates",True)
 
@@ -247,27 +269,45 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
             mgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             reply = mgBox.exec()
             if reply==QMessageBox.Yes:
-                self.runcommand("brew cask upgrade --greedy")
-                self.runcommand("brew cask outdated --greedy")
+                self.runcommand("brew upgrade --greedy")
+                self.runcommand("brew outdated --greedy")
             #print(message[1])
             #print("####")
             #print(message[2])
-        elif message[0] == "brew search --cask":
-            if len(message[1])>0 and message[1][-1]=="\n": message[1]=message[1][:-1]
-            apps = message[1].split("\n")
-            #for a in apps:
-            #    self.appDict["Casks"][a] = self.appDict["Casks"].get(a, {"token": a, "name": a})
-            self.runcommand("brew cask info --json=v1 {}".format(" ".join(apps)), False)
-            if self.actionCasks.isChecked():
-                self.changeCat("Casks",True)
 
-        elif message[0] == "brew search":
-            if len(message[1])>0 and message[1][-1] == "\n": message[1] = message[1][:-1]
-            apps = message[1].split("\n")
-            for a in apps:
-                self.appDict["Libs"][a] = self.appDict["Libs"].get(a, {"token": a, "name": a, "installcommand": "brew install {}".format(a)})
+
+        elif message[0] == "brew info --json=v2 --all":
+            self.appDict["Libs"] = dict()
+            try:
+                raw = json.loads(message[1])
+            except JSONDecodeError:
+                print(message[1])
+                return
+
+            for p in raw["formulae"]:
+                p["token"]=p["name"]
+                p["name"]=p["full_name"]
+                p["installcommand"]= "brew install --formula {}".format(p["token"])
+                self.appDict["Libs"][p["name"]]=p
             if self.actionLibs.isChecked():
                 self.changeCat("Libs",True)
+
+            for p in raw["casks"]:
+                if isinstance(p["name"], list):
+                    p["all_names"] = p["name"]
+                    p["name"] = p["name"][0]
+                    p["installcommand"] = "brew install --cask {}".format(p["token"])
+                self.appDict["Casks"][p["token"]] = p
+            if self.actionCasks.isChecked():
+                self.changeCat("Casks", True)
+
+            for k, _ in self.appDict["Updates"].items():
+                if k in self.appDict["Casks"]:
+                    v = self.appDict["Casks"].get(k)
+                    v["installcommand"] = self.appDict["Updates"][k]["installcommand"]
+                    self.appDict["Updates"][k] = v
+            if self.actionUpdates.isChecked():
+                self.changeCat("Updates", True)
 
 
         elif message[0] == "brew info --json=v1 --all":
@@ -285,7 +325,8 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.actionLibs.isChecked():
                 self.changeCat("Libs",True)
 
-        elif message[0].startswith("brew cask info --json=v1 "):
+        #elif message[0].startswith("brew cask info --json=v1 "):
+            '''
             appnames = message[0][len("brew cask info --json=v1 "):].split(" ")
             try:
                 raw = json.loads(message[1])
@@ -297,7 +338,7 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 if isinstance(p["name"],list):
                     p["all_names"]=p["name"]
                     p["name"]=p["name"][0]
-                    p["installcommand"] = "brew cask install {}".format(p["token"])
+                    p["installcommand"] = "brew install --cask {}".format(p["token"])
                 self.appDict["Casks"][p["token"]]=p
             if self.actionCasks.isChecked():
                 self.changeCat("Casks",True)
@@ -308,14 +349,24 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                     self.appDict["Updates"][k]=v
             if self.actionUpdates.isChecked():
                 self.changeCat("Updates",True)
-        elif message[0].startswith("brew cask upgrade "):
-            self.runcommand("brew cask outdated --greedy")
-
+            '''
+        elif message[0].startswith("brew upgrade"):
+            self.runcommand("brew outdated --greedy")
+        self.progressBar.setValue(self.progressBar.value() + 50)
+        if self.progressBar.value() >= self.progressBar.maximum():
+            self.progressBar.setValue(0)
+            self.progressBar.setMaximum(0)
+            self.fakeprogresstimer.stop()
     def console_writer(self,text):
+
         self.console.insertHtml(text)
         self.console.verticalScrollBar().setValue(self.console.verticalScrollBar().maximum())
 
     def runcommand(self,command,printit=True):
+        if not self.fakeprogresstimer.isActive():
+            self.fakeprogresstimer.start(1000)
+        self.progressBar.setMaximum(self.progressBar.maximum() + 100)
+        self.update()
         self.taskQ.put((command,printit))
     def on_startup(self):
         if os.system("command -v brew")!=0:
@@ -324,11 +375,12 @@ class myApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.runcommand("/usr/bin/ruby -e \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)\"", True)
             else:
                 exit()
-        self.runcommand("brew search --cask", False)
+        #self.runcommand("brew search --cask", False)
         #self.runcommand("brew search", False)
-        self.runcommand("brew info --json=v1 --all", False)
+        #self.runcommand("brew info --json=v1 --all", False)
+        self.runcommand("brew info --json=v2 --all", False)
         self.runcommand("brew update --verbose")
-        self.runcommand("brew cask outdated --greedy")
+        self.runcommand("brew outdated --greedy")
         #self.runcommand("brew search --cask", False)
         #self.runcommand("brew search", False)
 
